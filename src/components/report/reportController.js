@@ -1,4 +1,5 @@
 const process = require('process');
+const { generateEventReport, generateEventsReport } = require('./reportUtils');
 
 exports.generateEventReport = async (req, res) => {
   const data = req.body;
