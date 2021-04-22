@@ -1,0 +1,14 @@
+{
+  "name": "source-code",
+  "version": "1.0.0",
+  "description": "Generate .docx files for events degree project",
+  "main": "app.js",
+  "scripts": {
+    "start:dev": "nodemon app.js",
+    "start:prod": "node app.js",
+    "test": "jest --watch",
+    "documentation": "jsdoc -c .jsdoc.json --verbose"
+  },
+  "author": "",
+  "license": "ISC"
+}
