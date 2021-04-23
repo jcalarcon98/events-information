@@ -268,6 +268,19 @@ function getSpeakerElements(speaker) {
   return speakersElements;
 }
 
+async function generateImage(document, imageUrl, imageName) {
+  const imagePath = await downloadImage(imageUrl, imageName);
+  const imageBuffer = fs.readFileSync(imagePath);
+  const image = Media.addImage(document, imageBuffer, 530, 330);
+
+  const imageParagraph = new Paragraph({
+    children: [image],
+    alignment: AlignmentType.CENTER,
+  });
+
+  return imageParagraph;
+}
+
 async function generateEventReport({ evento: event }) {
   const {
     organizadores: organizers,
@@ -281,31 +294,16 @@ async function generateEventReport({ evento: event }) {
 
   const documentElements = [];
 
-  const documentTitle = `INFORME DEL EVENTO "${event.nombre}"`;
-  const paragraph = generateText(documentTitle, 30, AlignmentType.CENTER, true);
-
+  const paragraph = generateText(`INFORME DEL EVENTO "${event.nombre}"`, 30, AlignmentType.CENTER, true);
   documentElements.push(paragraph, emptyLine());
 
-  const documentDescriptionTitle = generateText(
-    "Descripción: ",
-    22,
-    AlignmentType.LEFT,
-    true
-  );
-
-  const documentDescriptionContent = generateText(
-    event.descripcion,
-    22,
-    AlignmentType.JUSTIFIED,
-    false
-  );
-
+  const documentDescriptionTitle = generateText("Descripción: ", 22, AlignmentType.LEFT, true);
+  const documentDescriptionContent = generateText(event.descripcion, 22, AlignmentType.JUSTIFIED, false);
   documentElements.push(documentDescriptionTitle, documentDescriptionContent, emptyLine());
 
   const firstTableElements = getFirstTableElements(event);
   const firstTableRows = getTableRows(firstTableElements);
   const firstTable = generateTable(firstTableRows, 3);
-
   documentElements.push(firstTable, emptyLine());
 
   const {
@@ -326,68 +324,56 @@ async function generateEventReport({ evento: event }) {
 
   documentElements.push(paragraphPlaces, emptyLine(), placesTable, emptyLine());
 
-  const valuesTitle = `Valor/es`;
-  const paragraphValues = generateText(
-    valuesTitle,
-    25,
-    AlignmentType.LEFT,
-    true
-  );
-  
+  const paragraphValues = generateText('Valor/es', 25, AlignmentType.LEFT, true);
   documentElements.push(paragraphValues, emptyLine());
 
   const valuesElements = getValuesElements(values);
   const valuesRows = getTableRows(valuesElements);
   const valuesTable = generateTable(valuesRows, 3);
-
   documentElements.push(valuesTable, emptyLine());
 
-  const speakersTitle = "Ponente/s";
-  const paragraphSpeaker = generateText(
-    speakersTitle,
-    25,
-    AlignmentType.LEFT,
-    true
-  );
-
+  const paragraphSpeaker = generateText('Ponente/s', 25, AlignmentType.LEFT, true);
   documentElements.push(paragraphSpeaker, emptyLine());
 
   speakers.forEach(speaker => {
     const speakersElements = getSpeakerElements(speaker);
     const speakerRows = getTableRows(speakersElements);
     const currentSpeakerTable = generateTable(speakerRows, 4);
-
     documentElements.push(currentSpeakerTable, emptyLine());
   });
 
-  const eventImagePath = await downloadImage(event.imagen, 'evento');
-  const eventImageBuffer = fs.readFileSync(eventImagePath);
-  const eventImage = Media.addImage(document, eventImageBuffer);
+  const paragraphImage = generateText('Imagen del evento:', 25, AlignmentType.LEFT, true);
+  documentElements.push(paragraphImage, emptyLine());
 
-  const eventImageParagraph = new Paragraph({
-    children: [eventImage],
-    alignment: AlignmentType.CENTER,
-  });
+  const eventImage = await generateImage(document, event.imagen, 'evento');
+  documentElements.push(eventImage, emptyLine());
 
-  documentElements.push(eventImageParagraph);
+  const paragraphImageEventSchedule = generateText('Imagen del cronograma del evento:', 25,  AlignmentType.LEFT, true);
+  documentElements.push(paragraphImageEventSchedule, emptyLine());
+
+  const eventScheduleImage = await generateImage(document, event.cronograma, 'cronograma');
+  documentElements.push(eventScheduleImage, emptyLine());
+
+  const paragraphEvidencesTitle = generateText('Evidencias del evento desarrollado', 25, AlignmentType.LEFT, true);
+  documentElements.push(paragraphEvidencesTitle, emptyLine());
+  
+  for (const [index, evidence] of evidences.entries()) {
+    const currentImageEvidence = await generateImage(document, evidence, `evidencia_${index + 1}`);
+    documentElements.push(currentImageEvidence, emptyLine());
+  }
 
   document.addSection({
     children: documentElements,
   });
 
   const documentInformation = getRandomDocumentName("evento", event.id);
-
-  documentPath = await generateDocument(
-    document,
-    "evento",
-    documentInformation.documentName
-  );
+  documentPath = await generateDocument(document, "evento", documentInformation.documentName);
 
   return documentInformation;
 }
 
-async function generateEventsReport(eventsData) {
-  console.log(util.inspect(eventsData, false, null, true));
+async function generateEventsReport({ eventos:  events}) {
+  console.log(util.inspect(events, false, null, true));
 }
 
 module.exports = {

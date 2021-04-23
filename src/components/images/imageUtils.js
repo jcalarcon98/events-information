@@ -5,7 +5,7 @@ const axios = require('axios')
 
 async function downloadImage (imageUrl, fileName) {  
   const url = imageUrl;
-  const pathToSave = `${process.cwd()}/${fileName}.jpg`;
+  const pathToSave = `${process.cwd()}/${fileName}.png`;
   const writer = fs.createWriteStream(pathToSave);
 
   const response = await axios({
