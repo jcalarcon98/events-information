@@ -1,4 +1,3 @@
-const { Alignment } = require("docx");
 const docx = require("docx");
 const fs = require("fs");
 const process = require("process");
@@ -51,17 +50,14 @@ function generateText(content, fontSize, alignment=AlignmentType.LEFT, bold=true
  */
 function generateAutomaticallyWidths(firstRowDivider) {
   const columnWidths = [];
-  let originalWidth = 9638;
+  let originalWidth = 9600;
   const leftRow = originalWidth/firstRowDivider;
   const rightRow = originalWidth - leftRow;
   columnWidths.push(leftRow, rightRow);
   return columnWidths;
 }
 
-    
-
 function generateTableRow(rowElements){
-
   const generatedChildren = []
 
   rowElements.forEach(element => {
@@ -83,9 +79,7 @@ function generateTableRow(rowElements){
   return tableRow;
 }
 
-
 function generateTable(tableRows, tableFirstColumnDivider) {
-  
   const columnWidths = generateAutomaticallyWidths(tableFirstColumnDivider);
 
   const table = new Table({
@@ -140,25 +134,7 @@ function customizeInfo(content, isBold) {
   }
 }
 
-async function generateEventReport({ evento: event }) {
-  const {
-    organizadores: organizers,
-    lugares: places,
-    valor: values,
-    ponentes: speakers,
-    evidencias: evidences,
-  } = event;
-
-  const document = new Document();
-
-  const documentElements = [];
-
-  const documentTitle = `INFORME DEL EVENTO "${event.nombre}"`;
-  const paragraph = generateText(documentTitle, 30, AlignmentType.CENTER, true);
-
-  const documentDescriptionTitle = generateText('Descripción: ', 22, AlignmentType.LEFT, true);
-  const documentDescriptionContent = generateText(event.descripcion, 22, AlignmentType.JUSTIFIED, false)
-
+function getFirstTableElements(event) {
   const firstTableElements = [
     [
       customizeInfo('Fecha de inicio de inscripciones:', true),
@@ -189,28 +165,102 @@ async function generateEventReport({ evento: event }) {
       customizeInfo(event.cupo, false)
     ],
   ]
+  
+  return firstTableElements
+}
 
-  const firstTableRows = [];
+function getSimpleElements(simpleContent, simpleArray) {
+  const simpleTableElements = [];
 
-  firstTableElements.forEach(row => {
+  simpleArray.forEach(element => {
 
+    const currentElement = [
+      customizeInfo(simpleContent, true),
+      customizeInfo(element, false)
+    ]
+
+    simpleTableElements.push(currentElement)
+  });
+  return simpleTableElements;
+}
+
+function emptyLine() {
+  return generateText('', 20);
+}
+
+function getTableRows(elementsArray) {
+  const tableRows = [];
+
+  elementsArray.forEach(row => {
     const currentTableRow = generateTableRow(row);
-
-    firstTableRows.push(currentTableRow);
-
+    tableRows.push(currentTableRow);
   });
 
-  console.log(firstTableRows)
+  return tableRows;
+}
 
+function getSimpleContent(titleContent, defaultCellContent, arrayContent) {
+  const title = titleContent;
+  const paragraph = generateText(title, 25, AlignmentType.LEFT, true);
+  const simpleTableElements = getSimpleElements(defaultCellContent, arrayContent);
+  const simpleTablesRows = getTableRows(simpleTableElements);
+  const simpleTable = generateTable(simpleTablesRows, 3);
+
+  return {
+    paragraph,
+    simpleTable
+  }
+}
+
+async function generateEventReport({ evento: event }) {
+  const {
+    organizadores: organizers,
+    lugares: places,
+    valor: values,
+    ponentes: speakers,
+    evidencias: evidences,
+  } = event;
+
+  const document = new Document();
+
+  const documentElements = [];
+
+  const documentTitle = `INFORME DEL EVENTO "${event.nombre}"`;
+  const paragraph = generateText(documentTitle, 30, AlignmentType.CENTER, true);
+
+  const documentDescriptionTitle = generateText('Descripción: ', 22, AlignmentType.LEFT, true);
+  const documentDescriptionContent = generateText(event.descripcion, 22, AlignmentType.JUSTIFIED, false)
+  
+  const firstTableElements = getFirstTableElements(event);
+  const firstTableRows = getTableRows(firstTableElements);
   const firstTable = generateTable(firstTableRows, 3)
+
+  const {
+    paragraph: paragrahOrganizers,
+    simpleTable: organizersTable
+  } = getSimpleContent('Organizador/es:', 'Nombre del Organizador:', organizers);
+
+  const {
+    paragraph: paragraphPlaces,
+    simpleTable: placesTable
+  } = getSimpleContent('Lugar/es:', 'Nombre del Lugar:', places);
+
 
   documentElements.push(
     paragraph,
-    generateText('', 20),
+    emptyLine(),
     documentDescriptionTitle,
     documentDescriptionContent,
-    generateText('', 20),
-    firstTable
+    emptyLine(),
+    firstTable,
+    emptyLine(),
+    paragrahOrganizers,
+    emptyLine(),
+    organizersTable,
+    emptyLine(),
+    paragraphPlaces,
+    emptyLine(),
+    placesTable
   );
 
   document.addSection({
@@ -223,8 +273,6 @@ async function generateEventReport({ evento: event }) {
 
   return documentInformation;
 }
-
-
 
 async function generateEventsReport(eventsData) {
   console.log(util.inspect(eventsData, false, null, true));
