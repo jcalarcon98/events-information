@@ -2,6 +2,7 @@ const docx = require("docx");
 const fs = require("fs");
 const process = require("process");
 const util = require("util");
+const { downloadImage } = require("../images/imageUtils");
 
 const {
   Document,
@@ -14,18 +15,21 @@ const {
   AlignmentType,
   VerticalAlign,
   TextRun,
-  PageBreak,
 } = docx;
 
 /**
  * Generate a paragraph, it will be used as initial title after table.
- * @param  {string} text - The text that will be displayed
+ * @param  {string} content - The text that will be displayed
  * @param  {number} fontSize - The size of the text
  * @param  {number} alignment - Text alignment, if is 0 aligment will be LEFT else CENTER.
  * @returns {Paragraph} Paragraph object, it is part of the .docx library.
  */
-function generateText(content, fontSize, alignment=AlignmentType.LEFT, bold=true) {
-
+function generateText(
+  content,
+  fontSize,
+  alignment = AlignmentType.LEFT,
+  bold = true
+) {
   const paragraph = new Paragraph({
     children: [
       new TextRun({
@@ -33,7 +37,6 @@ function generateText(content, fontSize, alignment=AlignmentType.LEFT, bold=true
         bold: bold,
         size: fontSize,
       }),
-      
     ],
     alignment,
   });
@@ -51,18 +54,22 @@ function generateText(content, fontSize, alignment=AlignmentType.LEFT, bold=true
 function generateAutomaticallyWidths(firstRowDivider) {
   const columnWidths = [];
   let originalWidth = 9600;
-  const leftRow = originalWidth/firstRowDivider;
+  const leftRow = originalWidth / firstRowDivider;
   const rightRow = originalWidth - leftRow;
   columnWidths.push(leftRow, rightRow);
   return columnWidths;
 }
 
-function generateTableRow(rowElements){
-  const generatedChildren = []
+function generateTableRow(rowElements) {
+  const generatedChildren = [];
 
-  rowElements.forEach(element => {
-
-    const textCell = generateText(element.content, element.fontSize, element.alignment, element.bold);
+  rowElements.forEach((element) => {
+    const textCell = generateText(
+      element.content,
+      element.fontSize,
+      element.alignment,
+      element.bold
+    );
 
     const currentTableCell = new TableCell({
       children: [textCell],
@@ -100,7 +107,7 @@ function generateTable(tableRows, tableFirstColumnDivider) {
 function getRandomDocumentName(type, eventId) {
   const currentDate = new Date();
   const randomNumber = currentDate.getMilliseconds() + currentDate.getDate();
-  const currentStringDate = currentDate.toDateString()
+  const currentStringDate = currentDate.toDateString();
   const basePath = `${process.cwd()}/reports`;
 
   const reportPath = `${basePath}/${type}`;
@@ -127,71 +134,67 @@ async function generateDocument(document, folder, documentName) {
 
 function customizeInfo(content, isBold) {
   return {
-    content: content, 
+    content: content,
     fontSize: 22,
     alignment: AlignmentType.LEFT,
-    bold: isBold
-  }
+    bold: isBold,
+  };
 }
 
 function getFirstTableElements(event) {
   const firstTableElements = [
     [
-      customizeInfo('Fecha de inicio de inscripciones:', true),
-      customizeInfo(event.fechaInscripcionInicio, false)
+      customizeInfo("Fecha de inicio de inscripciones:", true),
+      customizeInfo(event.fechaInscripcionInicio, false),
     ],
     [
-      customizeInfo('Fecha de finalización de inscripciones:', true),
-      customizeInfo(event.fechaInscripcionFin, false)
+      customizeInfo("Fecha de finalización de inscripciones:", true),
+      customizeInfo(event.fechaInscripcionFin, false),
     ],
     [
-      customizeInfo('Fecha de inicio del Evento:', true),
-      customizeInfo(event.fechaEventoInicio, false)
+      customizeInfo("Fecha de inicio del Evento:", true),
+      customizeInfo(event.fechaEventoInicio, false),
     ],
     [
-      customizeInfo('Fecha de finalización del Evento:', true),
-      customizeInfo(event.fechaEventoFin, false)
-    ],
-    [ 
-      customizeInfo('Tipo del Evento:', true),
-      customizeInfo(event.tipoEvento, false)
+      customizeInfo("Fecha de finalización del Evento:", true),
+      customizeInfo(event.fechaEventoFin, false),
     ],
     [
-      customizeInfo('Categoría del Evento:', true),
-      customizeInfo(event.categoriaEvento, false)
+      customizeInfo("Tipo del Evento:", true),
+      customizeInfo(event.tipoEvento, false),
     ],
     [
-      customizeInfo('Cupo:', true),
-      customizeInfo(event.cupo, false)
+      customizeInfo("Categoría del Evento:", true),
+      customizeInfo(event.categoriaEvento, false),
     ],
-  ]
-  
-  return firstTableElements
+    [customizeInfo("Cupo:", true), customizeInfo(event.cupo, false)],
+  ];
+
+  return firstTableElements;
 }
 
 function getSimpleElements(simpleContent, simpleArray) {
   const simpleTableElements = [];
 
-  simpleArray.forEach(element => {
-
+  simpleArray.forEach((element) => {
     const currentElement = [
       customizeInfo(simpleContent, true),
-      customizeInfo(element, false)
-    ]
+      customizeInfo(element, false),
+    ];
 
-    simpleTableElements.push(currentElement)
+    simpleTableElements.push(currentElement);
   });
   return simpleTableElements;
 }
 
 function emptyLine() {
-  return generateText('', 20);
+  return generateText("", 20);
 }
 
 function getTableRows(elementsArray) {
   const tableRows = [];
 
-  elementsArray.forEach(row => {
+  elementsArray.forEach((row) => {
     const currentTableRow = generateTableRow(row);
     tableRows.push(currentTableRow);
   });
@@ -202,14 +205,67 @@ function getTableRows(elementsArray) {
 function getSimpleContent(titleContent, defaultCellContent, arrayContent) {
   const title = titleContent;
   const paragraph = generateText(title, 25, AlignmentType.LEFT, true);
-  const simpleTableElements = getSimpleElements(defaultCellContent, arrayContent);
+  const simpleTableElements = getSimpleElements(
+    defaultCellContent,
+    arrayContent
+  );
   const simpleTablesRows = getTableRows(simpleTableElements);
   const simpleTable = generateTable(simpleTablesRows, 3);
 
   return {
     paragraph,
-    simpleTable
-  }
+    simpleTable,
+  };
+}
+
+function getValuesElements(values) {
+  const valuesElements = [
+    [customizeInfo("ROL", true), customizeInfo("VALOR", true)],
+  ];
+
+  values.forEach((currentPairValue) => {
+    currentPair = [
+      customizeInfo(currentPairValue.rol, false),
+      customizeInfo(currentPairValue.valor, false),
+    ];
+
+    valuesElements.push(currentPair);
+  });
+
+  return valuesElements;
+}
+
+function getSpeakerElements(speaker) {
+  const speakersElements = [];
+
+  const speakerName = [
+    customizeInfo("Nombres", true),
+    customizeInfo(speaker.nombre, false),
+  ];
+
+  const speakerLastName = [
+    customizeInfo("Apellidos", true),
+    customizeInfo(speaker.apellido, false),
+  ];
+
+  const speakerEmail = [
+    customizeInfo("Correo", true),
+    customizeInfo(speaker.correo, false),
+  ];
+
+  const speakerSummary = [
+    customizeInfo("Resumen", true),
+    customizeInfo(speaker.resumen, false),
+  ];
+
+  speakersElements.push(
+    speakerName,
+    speakerLastName,
+    speakerEmail,
+    speakerSummary
+  );
+
+  return speakersElements;
 }
 
 async function generateEventReport({ evento: event }) {
@@ -228,48 +284,104 @@ async function generateEventReport({ evento: event }) {
   const documentTitle = `INFORME DEL EVENTO "${event.nombre}"`;
   const paragraph = generateText(documentTitle, 30, AlignmentType.CENTER, true);
 
-  const documentDescriptionTitle = generateText('Descripción: ', 22, AlignmentType.LEFT, true);
-  const documentDescriptionContent = generateText(event.descripcion, 22, AlignmentType.JUSTIFIED, false)
-  
+  documentElements.push(paragraph, emptyLine());
+
+  const documentDescriptionTitle = generateText(
+    "Descripción: ",
+    22,
+    AlignmentType.LEFT,
+    true
+  );
+
+  const documentDescriptionContent = generateText(
+    event.descripcion,
+    22,
+    AlignmentType.JUSTIFIED,
+    false
+  );
+
+  documentElements.push(documentDescriptionTitle, documentDescriptionContent, emptyLine());
+
   const firstTableElements = getFirstTableElements(event);
   const firstTableRows = getTableRows(firstTableElements);
-  const firstTable = generateTable(firstTableRows, 3)
+  const firstTable = generateTable(firstTableRows, 3);
+
+  documentElements.push(firstTable, emptyLine());
 
   const {
     paragraph: paragrahOrganizers,
-    simpleTable: organizersTable
-  } = getSimpleContent('Organizador/es:', 'Nombre del Organizador:', organizers);
+    simpleTable: organizersTable,
+  } = getSimpleContent(
+    "Organizador/es:",
+    "Nombre del Organizador:",
+    organizers
+  );
+  
+  documentElements.push(paragrahOrganizers, emptyLine(), organizersTable, emptyLine());
 
   const {
     paragraph: paragraphPlaces,
-    simpleTable: placesTable
-  } = getSimpleContent('Lugar/es:', 'Nombre del Lugar:', places);
+    simpleTable: placesTable,
+  } = getSimpleContent("Lugar/es:", "Nombre del Lugar:", places);
 
+  documentElements.push(paragraphPlaces, emptyLine(), placesTable, emptyLine());
 
-  documentElements.push(
-    paragraph,
-    emptyLine(),
-    documentDescriptionTitle,
-    documentDescriptionContent,
-    emptyLine(),
-    firstTable,
-    emptyLine(),
-    paragrahOrganizers,
-    emptyLine(),
-    organizersTable,
-    emptyLine(),
-    paragraphPlaces,
-    emptyLine(),
-    placesTable
+  const valuesTitle = `Valor/es`;
+  const paragraphValues = generateText(
+    valuesTitle,
+    25,
+    AlignmentType.LEFT,
+    true
+  );
+  
+  documentElements.push(paragraphValues, emptyLine());
+
+  const valuesElements = getValuesElements(values);
+  const valuesRows = getTableRows(valuesElements);
+  const valuesTable = generateTable(valuesRows, 3);
+
+  documentElements.push(valuesTable, emptyLine());
+
+  const speakersTitle = "Ponente/s";
+  const paragraphSpeaker = generateText(
+    speakersTitle,
+    25,
+    AlignmentType.LEFT,
+    true
   );
 
+  documentElements.push(paragraphSpeaker, emptyLine());
+
+  speakers.forEach(speaker => {
+    const speakersElements = getSpeakerElements(speaker);
+    const speakerRows = getTableRows(speakersElements);
+    const currentSpeakerTable = generateTable(speakerRows, 4);
+
+    documentElements.push(currentSpeakerTable, emptyLine());
+  });
+
+  const eventImagePath = await downloadImage(event.imagen, 'evento');
+  const eventImageBuffer = fs.readFileSync(eventImagePath);
+  const eventImage = Media.addImage(document, eventImageBuffer);
+
+  const eventImageParagraph = new Paragraph({
+    children: [eventImage],
+    alignment: AlignmentType.CENTER,
+  });
+
+  documentElements.push(eventImageParagraph);
+
   document.addSection({
-    children: documentElements
-  })
+    children: documentElements,
+  });
 
-  const documentInformation = getRandomDocumentName('evento', event.id)
+  const documentInformation = getRandomDocumentName("evento", event.id);
 
-  documentPath = await generateDocument(document, 'evento', documentInformation.documentName)
+  documentPath = await generateDocument(
+    document,
+    "evento",
+    documentInformation.documentName
+  );
 
   return documentInformation;
 }

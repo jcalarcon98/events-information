@@ -1,5 +1,6 @@
 /node_modules
 *.docx
-myChart.png
-myIndicatorsChart.png
+*.png
+*.jpg
+*.jpeg
 /docs
