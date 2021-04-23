@@ -1,3 +1,4 @@
+const { Alignment } = require("docx");
 const docx = require("docx");
 const fs = require("fs");
 const process = require("process");
@@ -24,22 +25,76 @@ const {
  * @param  {number} alignment - Text alignment, if is 0 aligment will be LEFT else CENTER.
  * @returns {Paragraph} Paragraph object, it is part of the .docx library.
  */
-function generateTitle(content, fontSize, alignment) {
-  const currentAlignment =
-    alignment === 0 ? AlignmentType.LEFT : AlignmentType.CENTER;
+function generateText(content, fontSize, alignment=AlignmentType.LEFT, bold=true) {
 
   const paragraph = new Paragraph({
     children: [
       new TextRun({
         text: content,
-        bold: true,
+        bold: bold,
         size: fontSize,
       }),
+      
     ],
-    alignment: currentAlignment,
+    alignment,
   });
 
   return paragraph;
+}
+
+/**
+ * Generate automatically widths of each cell, this approach is compatible with all formats
+ * (Google Docs, Libre Office and Microsoft word)
+ * @param  {number} syllabusesLenght amount of syllabuses.
+ * @param  {number} alternativesLength amoount of alternatives.
+ * @returns {number[]} array with all widths values
+ */
+function generateAutomaticallyWidths(firstRowDivider) {
+  const columnWidths = [];
+  let originalWidth = 9638;
+  const leftRow = originalWidth/firstRowDivider;
+  const rightRow = originalWidth - leftRow;
+  columnWidths.push(leftRow, rightRow);
+  return columnWidths;
+}
+
+    
+
+function generateTableRow(rowElements){
+
+  const generatedChildren = []
+
+  rowElements.forEach(element => {
+
+    const textCell = generateText(element.content, element.fontSize, element.alignment, element.bold);
+
+    const currentTableCell = new TableCell({
+      children: [textCell],
+      verticalAlign: VerticalAlign.CENTER,
+    });
+
+    generatedChildren.push(currentTableCell);
+  });
+
+  const tableRow = new TableRow({
+    children: generatedChildren,
+  });
+
+  return tableRow;
+}
+
+
+function generateTable(tableRows, tableFirstColumnDivider) {
+  
+  const columnWidths = generateAutomaticallyWidths(tableFirstColumnDivider);
+
+  const table = new Table({
+    rows: tableRows,
+    width: 0,
+    columnWidths,
+  });
+
+  return table;
 }
 
 /**
@@ -68,7 +123,6 @@ function getRandomDocumentName(type, eventId) {
   };
 }
 
-
 async function generateDocument(document, folder, documentName) {
   const buffer = await Packer.toBuffer(document);
   const pathToSave = `reports/${folder}/${documentName}`;
@@ -77,6 +131,14 @@ async function generateDocument(document, folder, documentName) {
   return pathToSave;
 }
 
+function customizeInfo(content, isBold) {
+  return {
+    content: content, 
+    fontSize: 22,
+    alignment: AlignmentType.LEFT,
+    bold: isBold
+  }
+}
 
 async function generateEventReport({ evento: event }) {
   const {
@@ -87,20 +149,69 @@ async function generateEventReport({ evento: event }) {
     evidencias: evidences,
   } = event;
 
-  console.log(util.inspect(organizers, false, null, true), "Organizers");
-  console.log(util.inspect(places, false, null, true), "Places");
-  console.log(util.inspect(values, false, null, true), "Values");
-  console.log(util.inspect(speakers, false, null, true), "Speakers");
-  console.log(util.inspect(evidences, false, null, true), "Evidences");
-
   const document = new Document();
 
   const documentElements = [];
 
   const documentTitle = `INFORME DEL EVENTO "${event.nombre}"`;
-  const paragraph = generateTitle(documentTitle, 30, 1);
+  const paragraph = generateText(documentTitle, 30, AlignmentType.CENTER, true);
 
-  documentElements.push(paragraph);
+  const documentDescriptionTitle = generateText('Descripción: ', 22, AlignmentType.LEFT, true);
+  const documentDescriptionContent = generateText(event.descripcion, 22, AlignmentType.JUSTIFIED, false)
+
+  const firstTableElements = [
+    [
+      customizeInfo('Fecha de inicio de inscripciones:', true),
+      customizeInfo(event.fechaInscripcionInicio, false)
+    ],
+    [
+      customizeInfo('Fecha de finalización de inscripciones:', true),
+      customizeInfo(event.fechaInscripcionFin, false)
+    ],
+    [
+      customizeInfo('Fecha de inicio del Evento:', true),
+      customizeInfo(event.fechaEventoInicio, false)
+    ],
+    [
+      customizeInfo('Fecha de finalización del Evento:', true),
+      customizeInfo(event.fechaEventoFin, false)
+    ],
+    [ 
+      customizeInfo('Tipo del Evento:', true),
+      customizeInfo(event.tipoEvento, false)
+    ],
+    [
+      customizeInfo('Categoría del Evento:', true),
+      customizeInfo(event.categoriaEvento, false)
+    ],
+    [
+      customizeInfo('Cupo:', true),
+      customizeInfo(event.cupo, false)
+    ],
+  ]
+
+  const firstTableRows = [];
+
+  firstTableElements.forEach(row => {
+
+    const currentTableRow = generateTableRow(row);
+
+    firstTableRows.push(currentTableRow);
+
+  });
+
+  console.log(firstTableRows)
+
+  const firstTable = generateTable(firstTableRows, 3)
+
+  documentElements.push(
+    paragraph,
+    generateText('', 20),
+    documentDescriptionTitle,
+    documentDescriptionContent,
+    generateText('', 20),
+    firstTable
+  );
 
   document.addSection({
     children: documentElements
