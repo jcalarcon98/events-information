@@ -380,10 +380,9 @@ function getActivityTable(activity) {
   return currentActivityTable;
 }
 
-async function generateImage(document, imageUrl, imageName) {
-  const imagePath = await downloadImage(imageUrl, imageName);
+function generateImageInsideParagraph(imagePath, document, width=530, height=330) {
   const imageBuffer = fs.readFileSync(imagePath);
-  const image = Media.addImage(document, imageBuffer, 530, 330);
+  const image = Media.addImage(document, imageBuffer, width, height);
 
   const imageParagraph = new Paragraph({
     children: [image],
@@ -393,7 +392,13 @@ async function generateImage(document, imageUrl, imageName) {
   return imageParagraph;
 }
 
-async function generateEventReport({ evento: event }) {
+async function generateImage(document, imageUrl, imageName) {
+  const imagePath = await downloadImage(imageUrl, imageName);
+  const imageParagraph = generateImageInsideParagraph(imagePath, document);
+  return imageParagraph;
+}
+
+async function getEventContent(event, document) {
   const {
     organizadores: organizers,
     lugares: places,
@@ -402,18 +407,13 @@ async function generateEventReport({ evento: event }) {
     evidencias: evidences,
   } = event;
 
-  const document = new Document();
-
-  const documentElements = [];
-
-  const paragraph = generateText(`INFORME DEL EVENTO "${event.nombre}"`, 30, AlignmentType.CENTER, true);
-  documentElements.push(paragraph, emptyLine());
+  const eventContentElements = [];
 
   const {documentDescriptionTitle, documentDescriptionContent} = getEventDescriptionSection(event.descripcion);
-  documentElements.push(documentDescriptionTitle, documentDescriptionContent, emptyLine());
+  eventContentElements.push(documentDescriptionTitle, documentDescriptionContent, emptyLine());
 
   const eventTableDescription = getEventDescriptionTable(event);
-  documentElements.push(eventTableDescription, emptyLine());
+  eventContentElements.push(eventTableDescription, emptyLine());
 
   const {
     paragraph: paragrahOrganizers,
@@ -423,39 +423,69 @@ async function generateEventReport({ evento: event }) {
     "Nombre del Organizador:",
     organizers
   );
-  
-  documentElements.push(paragrahOrganizers, emptyLine(), organizersTable, emptyLine());
+
+  eventContentElements.push(paragrahOrganizers, emptyLine(), organizersTable, emptyLine());
 
   const {
     paragraph: paragraphPlaces,
     simpleTable: placesTable,
   } = getSimpleContent("Lugar/es:", "Nombre del Lugar:", places);
 
-  documentElements.push(paragraphPlaces, emptyLine(), placesTable, emptyLine());
+  eventContentElements.push(paragraphPlaces, emptyLine(), placesTable, emptyLine());
 
   const { paragraphValues, valuesTable } = getValuesSection(values);
-  documentElements.push(paragraphValues, emptyLine(), valuesTable, emptyLine());
+  eventContentElements.push(paragraphValues, emptyLine(), valuesTable, emptyLine());
 
   const paragraphSpeaker = generateText('Ponente/s', 25, AlignmentType.LEFT, true);
-  documentElements.push(paragraphSpeaker, emptyLine());
+  eventContentElements.push(paragraphSpeaker, emptyLine());
 
   speakers.forEach(speaker => {
-    documentElements.push(getSpeakerTable(speaker), emptyLine());
+    eventContentElements.push(getSpeakerTable(speaker), emptyLine());
   });
 
   const [paragraphImage, eventImage]  = await getImageSection('Imagen del evento:', document, event.imagen);
-  documentElements.push(paragraphImage, emptyLine(), eventImage, emptyLine());
+  eventContentElements.push(paragraphImage, emptyLine(), eventImage, emptyLine());
 
   const [paragraphImageEventSchedule, eventScheduleImage]  = await getImageSection('Imagen del cronograma del evento:', document, event.cronograma);
-  documentElements.push(paragraphImageEventSchedule, emptyLine(), eventScheduleImage, emptyLine());
+  eventContentElements.push(paragraphImageEventSchedule, emptyLine(), eventScheduleImage, emptyLine());
 
   const paragraphEvidencesTitle = generateText('Evidencias del evento desarrollado', 25, AlignmentType.LEFT, true);
-  documentElements.push(paragraphEvidencesTitle, emptyLine());
+  eventContentElements.push(paragraphEvidencesTitle, emptyLine());
   
   for (const [index, evidence] of evidences.entries()) {
     const currentImageEvidence = await generateImage(document, evidence, `evidencia_${index + 1}`);
-    documentElements.push(currentImageEvidence, emptyLine());
+    eventContentElements.push(currentImageEvidence, emptyLine());
   }
+
+  return eventContentElements;
+}
+
+async function getEventWithAcivitiesContent(events, document) {
+
+  const eventContentElements = [];
+
+  const {
+    valor: values,
+    ponentes: speakers,
+    actividades: activities,
+    evidencias: evidences,
+  } = events;
+
+  const {documentDescriptionTitle, documentDescriptionContent} = getEventDescriptionSection(events.descripcion);
+  eventContentElements.push(documentDescriptionTitle, documentDescriptionContent, emptyLine());
+
+}
+async function generateEventReport({ evento: event }) {
+  const document = new Document();
+
+  let documentElements = [];
+
+  const paragraph = generateText(`INFORME DEL EVENTO "${event.nombre}"`, 30, AlignmentType.CENTER, true);
+  documentElements.push(paragraph, emptyLine());
+  
+  const eventContent = await getEventContent(event, document)
+
+  documentElements = [...documentElements, ...eventContent];
 
   document.addSection({
     children: documentElements,
@@ -482,7 +512,7 @@ async function generateEventsReport({ eventos:  events}) {
 
   const paragraph = generateText(`INFORME DEL EVENTO "${events.nombre}"`, 30, AlignmentType.CENTER, true);
   documentElements.push(paragraph, emptyLine());
-
+  // 
   const {documentDescriptionTitle, documentDescriptionContent} = getEventDescriptionSection(events.descripcion);
   documentElements.push(documentDescriptionTitle, documentDescriptionContent, emptyLine());
 
@@ -557,7 +587,6 @@ function getAdsElements(advertisement) {
     return advertisementElements;
 }
 
-
 async function getAdverstisementSection(advertisement, document) {
 
   const advertisementSectionElements = [];
@@ -593,6 +622,25 @@ async function generateFinalReport({ data }) {
     const currentAdvertisementSection = await getAdverstisementSection(advertisement, document); 
     documentElements = [...documentElements, ...currentAdvertisementSection];
   }
+
+  const separatorImage = generateImageInsideParagraph(`${process.cwd()}/separator.png`, document, 600, 2);
+  documentElements.push(emptyLine(), separatorImage, emptyLine());
+
+  const eventsTitle = generateText(`Eventos difundidos`, 30, AlignmentType.CENTER, true);
+  documentElements.push(eventsTitle, emptyLine());
+
+  for (const event of events) {
+    const currentEventName = generateText(`Evento "${event.nombre}"`, 25, AlignmentType.LEFT, true);
+    documentElements.push(currentEventName, emptyLine());
+    const currentEventSection = await getEventContent(event, document);
+    documentElements = [...documentElements, ...currentEventSection];
+  }
+
+  const separatorImage = generateImageInsideParagraph(`${process.cwd()}/separator.png`, document, 600, 2);
+  documentElements.push(emptyLine(), separatorImage, emptyLine());
+
+  const eventsTitle = generateText(`EVENTOS CON VARIAS ACTIVIDADES DIFUNDIDOS`, 30, AlignmentType.CENTER, true);
+  documentElements.push(eventsTitle, emptyLine());
 
   document.addSection({
     children: documentElements,
