@@ -462,8 +462,6 @@ async function getEventContent(event, document) {
 
 async function getEventWithAcivitiesContent(events, document) {
 
-  const eventContentElements = [];
-
   const {
     valor: values,
     ponentes: speakers,
@@ -471,10 +469,48 @@ async function getEventWithAcivitiesContent(events, document) {
     evidencias: evidences,
   } = events;
 
+  const eventContentElements = [];
+
   const {documentDescriptionTitle, documentDescriptionContent} = getEventDescriptionSection(events.descripcion);
   eventContentElements.push(documentDescriptionTitle, documentDescriptionContent, emptyLine());
 
+  const eventTableDescription = getEventDescriptionTable(events);
+  eventContentElements.push(eventTableDescription, emptyLine());
+
+  const { paragraphValues, valuesTable} = getValuesSection(values);
+  eventContentElements.push(paragraphValues, emptyLine(), valuesTable, emptyLine());
+
+  const speakerParagraph = generateText('Ponente/s:', 25, AlignmentType.LEFT, true);
+  eventContentElements.push(speakerParagraph, emptyLine());
+
+  speakers.forEach(speaker => {
+    eventContentElements.push(getSpeakerTable(speaker), emptyLine());
+  });
+
+  const activitiesParagraph = generateText('Actividad/es:', 25, AlignmentType.LEFT, true);
+  eventContentElements.push(activitiesParagraph, emptyLine());
+
+  activities.forEach(activity => {
+    eventContentElements.push(getActivityTable(activity), emptyLine());
+  });
+
+  const [paragraphImage, eventImage]  = await getImageSection('Imagen del evento:', document, events.imagen);
+  eventContentElements.push(paragraphImage, emptyLine(), eventImage, emptyLine());
+
+  const [paragraphImageEventSchedule, eventScheduleImage]  = await getImageSection('Imagen del cronograma del evento:', document, events.cronograma);
+  eventContentElements.push(paragraphImageEventSchedule, emptyLine(), eventScheduleImage, emptyLine());
+
+  const paragraphEvidencesTitle = generateText('Evidencias del evento desarrollado', 25, AlignmentType.LEFT, true);
+  eventContentElements.push(paragraphEvidencesTitle, emptyLine());
+  
+  for (const [index, evidence] of evidences.entries()) {
+    const currentImageEvidence = await generateImage(document, evidence, `evidencia_${index + 1}`);
+    eventContentElements.push(currentImageEvidence, emptyLine());
+  }
+
+  return eventContentElements;
 }
+
 async function generateEventReport({ evento: event }) {
   const document = new Document();
 
@@ -499,56 +535,16 @@ async function generateEventReport({ evento: event }) {
 
 async function generateEventsReport({ eventos:  events}) {
 
-  const {
-    valor: values,
-    ponentes: speakers,
-    actividades: activities,
-    evidencias: evidences,
-  } = events;
-
   const document = new Document();
 
-  const documentElements = [];
+  let documentElements = [];
 
   const paragraph = generateText(`INFORME DEL EVENTO "${events.nombre}"`, 30, AlignmentType.CENTER, true);
   documentElements.push(paragraph, emptyLine());
-  // 
-  const {documentDescriptionTitle, documentDescriptionContent} = getEventDescriptionSection(events.descripcion);
-  documentElements.push(documentDescriptionTitle, documentDescriptionContent, emptyLine());
-
-  const eventTableDescription = getEventDescriptionTable(events);
-  documentElements.push(eventTableDescription, emptyLine());
-
-  const { paragraphValues, valuesTable} = getValuesSection(values);
-  documentElements.push(paragraphValues, emptyLine(), valuesTable, emptyLine());
-
-  const speakerParagraph = generateText('Ponente/s:', 25, AlignmentType.LEFT, true);
-  documentElements.push(speakerParagraph, emptyLine());
-
-  speakers.forEach(speaker => {
-    documentElements.push(getSpeakerTable(speaker), emptyLine());
-  });
-
-  const activitiesParagraph = generateText('Actividad/es:', 25, AlignmentType.LEFT, true);
-  documentElements.push(activitiesParagraph, emptyLine());
-
-  activities.forEach(activity => {
-    documentElements.push(getActivityTable(activity), emptyLine());
-  });
-
-  const [paragraphImage, eventImage]  = await getImageSection('Imagen del evento:', document, events.imagen);
-  documentElements.push(paragraphImage, emptyLine(), eventImage, emptyLine());
-
-  const [paragraphImageEventSchedule, eventScheduleImage]  = await getImageSection('Imagen del cronograma del evento:', document, events.cronograma);
-  documentElements.push(paragraphImageEventSchedule, emptyLine(), eventScheduleImage, emptyLine());
-
-  const paragraphEvidencesTitle = generateText('Evidencias del evento desarrollado', 25, AlignmentType.LEFT, true);
-  documentElements.push(paragraphEvidencesTitle, emptyLine());
   
-  for (const [index, evidence] of evidences.entries()) {
-    const currentImageEvidence = await generateImage(document, evidence, `evidencia_${index + 1}`);
-    documentElements.push(currentImageEvidence, emptyLine());
-  }
+  const eventsContent = await getEventWithAcivitiesContent(events, document);
+
+  documentElements = [...documentElements, ...eventsContent];
 
   document.addSection({
     children: documentElements,
@@ -636,11 +632,17 @@ async function generateFinalReport({ data }) {
     documentElements = [...documentElements, ...currentEventSection];
   }
 
-  const separatorImage = generateImageInsideParagraph(`${process.cwd()}/separator.png`, document, 600, 2);
   documentElements.push(emptyLine(), separatorImage, emptyLine());
 
-  const eventsTitle = generateText(`EVENTOS CON VARIAS ACTIVIDADES DIFUNDIDOS`, 30, AlignmentType.CENTER, true);
-  documentElements.push(eventsTitle, emptyLine());
+  const eventsWithActivitiesTitle = generateText(`EVENTOS CON VARIAS ACTIVIDADES DIFUNDIDOS`, 30, AlignmentType.CENTER, true);
+  documentElements.push(eventsWithActivitiesTitle, emptyLine());
+
+  for (const eventWithActivities of eventsWithActivities) {
+    const currentEventwithActivitieName = generateText(`Evento "${eventWithActivities.nombre}"`, 25, AlignmentType.LEFT, true);
+    documentElements.push(currentEventwithActivitieName, emptyLine());
+    const currentEventWithActivitySection = await getEventWithAcivitiesContent(eventWithActivities, document);
+    documentElements = [...documentElements, ...currentEventWithActivitySection];
+  }
 
   document.addSection({
     children: documentElements,
