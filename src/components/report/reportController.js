@@ -1,5 +1,5 @@
 const process = require('process');
-const { generateEventReport, generateEventsReport } = require('./reportUtils');
+const { generateEventReport, generateEventsReport, generateFinalReport } = require('./reportUtils');
 
 exports.generateEventReport = async (req, res) => {
   const data = req.body;
@@ -15,6 +15,13 @@ exports.generateEventsReport = async(req, res) => {
   res.json(documentPath)
 }
 
+
+exports.generateFinalReport = async(req, res) => {
+  const data = req.body;
+  const documentPath = await generateFinalReport(data);
+
+  res.json(documentPath)
+}
 
 exports.downloadReport = (req, res) => {
   const { folder, documentName } = req.params;

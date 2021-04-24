@@ -1,7 +1,6 @@
 const docx = require("docx");
 const fs = require("fs");
 const process = require("process");
-const util = require("util");
 const { downloadImage } = require("../images/imageUtils");
 
 const {
@@ -323,16 +322,6 @@ async function getImageSection(titleSection, document, image) {
 
 function getActivitiesElements(activity) {
 
-  /**
-   *  "nombre": "Programación con Python",
-      "tipoActividad": "Técnica",
-      "categoriaActividad": "Categoria Actividad",
-      "organizador": "Jean Carlos Alarcón",
-      "ponente": "Juan Francisco Tenorio",
-      "lugar": "Universidad Nacional de Loja",
-      "fechaActividad": "24 de Mayo de 2020"
-   */
-
   const activitiesElements = [];
 
   const activityName = [
@@ -541,7 +530,82 @@ async function generateEventsReport({ eventos:  events}) {
   return documentInformation;
 }
 
+function getAdsElements(advertisement) {
+    const advertisementElements = [];
+  
+    const advertisementName = [
+      customizeInfo("Nombre del anuncio:", true),
+      customizeInfo(advertisement.nombre, false),
+    ];
+
+    const advertisementDescription = [
+      customizeInfo("Descripción:", true),
+      customizeInfo(advertisement.descripcion, false),
+    ];
+  
+    const advertisementDate = [
+      customizeInfo("Fecha de solicitud:", true),
+      customizeInfo(advertisement.fechaSolicitud, false),
+    ];
+
+    advertisementElements.push(
+      advertisementName,
+      advertisementDescription,
+      advertisementDate
+    );
+  
+    return advertisementElements;
+}
+
+
+async function getAdverstisementSection(advertisement, document) {
+
+  const advertisementSectionElements = [];
+
+  const advertisementElements = getAdsElements(advertisement);
+  const advertisementRows = getTableRows(advertisementElements);
+  const advertisementTable =  generateTable(advertisementRows, 3);
+  
+  advertisementSectionElements.push(advertisementTable, emptyLine());
+
+  const [advertismentTitleImage, advertisementImage]  = await getImageSection('Imagen del anuncio:', document, advertisement.imagen);
+  advertisementSectionElements.push(advertismentTitleImage, emptyLine(), advertisementImage, emptyLine());
+
+  return advertisementSectionElements;
+}
+
+async function generateFinalReport({ data }) {
+  const  {
+    anuncio: advertisements,
+    evento: events,
+    eventos: eventsWithActivities,
+  } = data;
+
+  const document = new Document();
+
+  let documentElements = [];
+
+  const titleDocument = generateText(`INFORME DE DIFUSIÓN DE EVENTOS`, 35, AlignmentType.CENTER, true);
+  const adsTitle = generateText(`ANUNCIOS`, 30, AlignmentType.CENTER, true);
+  documentElements.push(titleDocument, emptyLine(), adsTitle, emptyLine());
+
+  for (const advertisement of advertisements) {
+    const currentAdvertisementSection = await getAdverstisementSection(advertisement, document); 
+    documentElements = [...documentElements, ...currentAdvertisementSection];
+  }
+
+  document.addSection({
+    children: documentElements,
+  });
+
+  const documentInformation = getRandomDocumentName("informe", advertisements[0].id);
+  documentPath = await generateDocument(document, "informe", documentInformation.documentName);
+
+  return documentInformation;
+}
+
 module.exports = {
   generateEventReport,
   generateEventsReport,
+  generateFinalReport
 };
